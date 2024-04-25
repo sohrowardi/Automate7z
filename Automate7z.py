@@ -3,35 +3,73 @@ import subprocess
 import shutil
 import time
 
+def get_total_size(directory):
+    total = 0
+    for path, dirs, files in os.walk(directory):
+        for f in files:
+            fp = os.path.join(path, f)
+            total += os.path.getsize(fp)
+    return total
+
 def zip_with_7z(item, password, script_dir, seven_zip_path):
     # Exclude files already in .7z format
     if item.endswith('.7z'):
         return
     
-    # Exclude certain files from compression
-    if item == 'compression.log':
-        return
-    
     # Create archive name relative to the script directory
     if os.path.isdir(item):
         archive_name = os.path.join(script_dir, item + '.7z')
+        # Get total size of directory
+        total_size = get_total_size(item)
     else:
         archive_name = os.path.join(script_dir, os.path.splitext(os.path.basename(item))[0] + '.7z')
+        # Get size of file
+        total_size = os.path.getsize(item)
 
-    # Prepare command for compression
-    command = [seven_zip_path, 'a', '-p{}'.format(password), '-mhe=on', '-mx=9', '-m0=LZMA2', '-mmt=on', archive_name, item]
-
-    # Run compression command
-    result = subprocess.run(command, capture_output=True, text=True)
-    
-    # Parse the output to find the archive size
-    output_lines = result.stdout.split('\n')
-    for line in output_lines:
-        if line.startswith('Archive size:'):
-            print(line)
-            break
+    # Check file/folder size and add volume splitting option if size exceeds 2GB
+    if total_size > 2 * 1024 * 1024 * 1024:  # 2GB in bytes
+        archive_name = archive_name[:-3]  # Remove .7z extension
+        command = [
+        seven_zip_path,
+        'a',
+        '-bsp1',
+        '-p{}'.format(password),
+        '-mhe=on',
+        '-mx=0',
+        '-m0=Copy',
+        '-mmt=on',
+        '-v2000M',  # Add volume splitting option (2000M per volume)
+        archive_name,
+        item
+    ]
     else:
-        print("Failed to retrieve archive size information.")
+         command = [
+         seven_zip_path,
+        'a',
+        '-bsp1',
+        '-p{}'.format(password),
+        '-mhe=on',
+        '-mx=0',
+        '-m0=Copy',
+        '-mmt=on',
+        archive_name,
+        item
+    ]
+
+    # Run compression command and capture output
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    
+    while True:
+        output = process.stdout.readline()
+        if not output and process.poll() is not None:
+            break
+        if output:
+            if "%" in output:  # Only print the line containing the progress percentage
+                print(output.strip(), end='\r')  # Print each line of output on the same line
+                time.sleep(0.1)  # Add a small delay to make the progress bar visible
+
+    print("\nCompression completed for:", item)
+
 
 def main():
     # Get password from user
@@ -73,3 +111,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # Add this line to wait for user input before exiting
+    input("Press any key to exit...")
