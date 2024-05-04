@@ -1,6 +1,6 @@
 <p align="center">
-  <img src=".png/before.png" width="400" />
-  <img src=".png/after.png" width="400" />
+  <img src="images/before.png" width="400" />
+  <img src="images/after.png" width="400" />
 </p>
 
 
