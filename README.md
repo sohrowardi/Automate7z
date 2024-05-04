@@ -1,3 +1,10 @@
+### I created this script to simplify the process of encrypting millions of files and folders. It automatically splits large files into volumes of 2000MB each and sends them to Telegram.
+<p align="center">
+  <img src=".png/before.png" width="400" />
+  <img src=".png/after.png" width="400" />
+</p>
+
+
 # Automate7z
 
 Automate7z is a Python script that automates the process of archiving files and folders using the 7z compression utility. It allows you to easily create password-protected and encrypted archives with just a few simple steps.
@@ -31,4 +38,5 @@ python ArchiveEverything.py
 - Make sure to customize the `seven_zip_path` variable in the script to point to the location of the 7z executable on your system.
 - By default, the script will create archives in the same directory as the Python script. Ensure that you have write permissions in that directory.
 
-![Before Encryption](.png/before.png) ![After Encryption](.png/after.png)
+
+
