@@ -31,3 +31,4 @@ python ArchiveEverything.py
 - Make sure to customize the `seven_zip_path` variable in the script to point to the location of the 7z executable on your system.
 - By default, the script will create archives in the same directory as the Python script. Ensure that you have write permissions in that directory.
 
+![Before Encryption](.png/before.png) ![After Encryption](.png/after.png)
