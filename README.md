@@ -1,4 +1,3 @@
-### I created this script to simplify the process of encrypting millions of files and folders. It automatically splits large files into volumes of 2000MB each and sends them to Telegram.
 <p align="center">
   <img src=".png/before.png" width="400" />
   <img src=".png/after.png" width="400" />
