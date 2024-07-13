@@ -1,90 +1,116 @@
 import os
-import shutil
 import subprocess
+import shutil
 import time
-from tqdm import tqdm
-import getpass
-import logging
 
-def get_folder_size(folder):
-    """Calculate the total size of the folder."""
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(folder):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            total_size += os.path.getsize(fp)
-    return total_size
+def get_total_size(directory):
+    total = 0
+    for path, dirs, files in os.walk(directory):
+        for f in files:
+            fp = os.path.join(path, f)
+            total += os.path.getsize(fp)
+    return total
 
-def compress_item(item_path, password, delete_originals, seven_zip_path, output_dir, split_size):
-    """Compress a file or folder using 7-Zip."""
-    item_name = os.path.basename(item_path)
-    compressed_name = os.path.join(output_dir, f"{item_name}.7z")
-    
-    if item_name.endswith(".7z"):
-        logging.info(f"Skipping already compressed file: {item_name}")
+def zip_with_7z(item, password, script_dir, seven_zip_path):
+    # Exclude files already in .7z format
+    if item.endswith('.7z'):
         return
-
-    item_size = get_folder_size(item_path) if os.path.isdir(item_path) else os.path.getsize(item_path)
     
-    logging.info(f"Compressing {item_name} ({item_size / (1024**3):.2f} GB)")
-
-    cmd = [seven_zip_path, 'a', '-t7z', '-mhe=on', f'-p{password}', compressed_name, item_path]
-
-    if item_size > split_size:
-        cmd += [f'-v{split_size}b']
-
-    with tqdm(total=item_size, unit='B', unit_scale=True, desc=compressed_name, dynamic_ncols=True) as pbar:
-        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) as process:
-            for line in process.stdout:
-                pbar.update(len(line))
-
-    if process.wait() == 0:
-        logging.info(f"Compression of {item_name} completed.")
-        if delete_originals:
-            time.sleep(2)  # wait for a moment before deleting the original files
-            if os.path.isdir(item_path):
-                shutil.rmtree(item_path)
-            else:
-                os.remove(item_path)
-            logging.info(f"Deleted original {item_name}.")
+    # Create archive name relative to the script directory
+    if os.path.isdir(item):
+        archive_name = os.path.join(script_dir, item + '.7z')
+        # Get total size of directory
+        total_size = get_total_size(item)
     else:
-        logging.error(f"Compression of {item_name} failed.")
+        archive_name = os.path.join(script_dir, os.path.splitext(os.path.basename(item))[0] + '.7z')
+        # Get size of file
+        total_size = os.path.getsize(item)
+
+    # Check file/folder size and add volume splitting option if size exceeds 2GB
+    if total_size > 2 * 1024 * 1024 * 1024:  # 2GB in bytes
+        archive_name = archive_name[:-3]  # Remove .7z extension
+        command = [
+        seven_zip_path,
+        'a',
+        '-bsp1',
+        '-p{}'.format(password),
+        '-mhe=on',
+        '-mx=0',
+        '-m0=Copy',
+        '-mmt=on',
+        '-v2000M',  # Add volume splitting option (2000M per volume)
+        archive_name,
+        item
+    ]
+    else:
+         command = [
+         seven_zip_path,
+        'a',
+        '-bsp1',
+        '-p{}'.format(password),
+        '-mhe=on',
+        '-mx=0',
+        '-m0=Copy',
+        '-mmt=on',
+        archive_name,
+        item
+    ]
+
+    # Run compression command and capture output
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    
+    while True:
+        output = process.stdout.readline()
+        if not output and process.poll() is not None:
+            break
+        if output:
+            if "%" in output:  # Only print the line containing the progress percentage
+                print(output.strip(), end='\r')  # Print each line of output on the same line
+                time.sleep(0.1)  # Add a small delay to make the progress bar visible
+
+    print("\nCompression completed for:", item)
+
 
 def main():
-    """Main function to handle user inputs and initiate the compression process."""
-    logging.basicConfig(filename='compression.log', level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-    try:
-        password = getpass.getpass("Enter password for encryption: ")
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        
-        seven_zip_path = input("Enter the path to 7-Zip executable (default is C:\\Program Files\\7-Zip\\7z.exe): ") or "C:\\Program Files\\7-Zip\\7z.exe"
-        if not os.path.exists(seven_zip_path):
-            raise FileNotFoundError(f"7-Zip executable not found at {seven_zip_path}")
-        
-        output_dir = input("Enter the output directory (leave empty for current directory): ") or script_dir
-        if not os.path.exists(output_dir):
-            raise FileNotFoundError(f"Output directory not found at {output_dir}")
-        
-        split_size = input("Enter split size in bytes (default 2GB): ")
-        split_size = int(split_size) if split_size else 2 * 1024**3
-        
-        items = os.listdir(script_dir)
-        delete_originals = input("Delete originals after compression? (y/n): ").lower() == 'y'
+    # Get password from user
+    password = input("Enter password for encryption: ")
 
-        for item in items:
+    # Get the directory where the Python script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Specify the full path to 7z executable
+    seven_zip_path = "C:/Program Files/7-Zip/7z.exe"  # Modify this path accordingly
+
+    # List items in the current directory
+    items = os.listdir(script_dir)
+
+    # Ask user if they want to delete the original files after archiving
+    delete_files = input("Do you want to delete the original files after archiving? (yes/no): ").lower()
+
+    # Process each item
+    for item in items:
+        # Exclude Python script from being zipped
+        if item.endswith('.py'):
+            continue
+        print("Zipping", item)
+        zip_with_7z(item, password, script_dir, seven_zip_path)
+        
+        # Delete original files if user chooses to do so
+        if delete_files == 'yes' or delete_files == 'y':
+            time.sleep(1)  # Add a delay before deletion to ensure all processes are completed
+            
             item_path = os.path.join(script_dir, item)
-            if item_path == __file__:
-                continue
-            compress_item(item_path, password, delete_originals, seven_zip_path, output_dir, split_size)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)  # Recursively delete directories
+            else:
+                os.remove(item_path)  # Delete individual files
+            
+            print("Deleted original file:", item)
 
-        logging.info("Compression done.")
-        print("Compression done. Press any key to exit.")
-        input()
-
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        print(f"An error occurred: {e}")
+    print("Compression completed successfully.")
 
 if __name__ == "__main__":
     main()
+
+    # Add this line to wait for user input before exiting
+    input("Press any key to exit...")
