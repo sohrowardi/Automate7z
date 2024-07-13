@@ -26,35 +26,40 @@ def zip_with_7z(item, password, script_dir, seven_zip_path):
         # Get size of file
         total_size = os.path.getsize(item)
 
+    # Properly quote paths to handle spaces and special characters
+    item_quoted = f'"{item}"'
+    archive_name_quoted = f'"{archive_name}"'
+    password_quoted = f'"{password}"'
+
     # Check file/folder size and add volume splitting option if size exceeds 2GB
     if total_size > 2 * 1024 * 1024 * 1024:  # 2GB in bytes
-        archive_name = archive_name[:-3]  # Remove .7z extension
+        archive_name_quoted = f'"{archive_name[:-3]}"'  # Remove .7z extension
         command = [
-        seven_zip_path,
-        'a',
-        '-bsp1',
-        '-p{}'.format(password),
-        '-mhe=on',
-        '-mx=0',
-        '-m0=Copy',
-        '-mmt=on',
-        '-v2000M',  # Add volume splitting option (2000M per volume)
-        archive_name,
-        item
-    ]
+            seven_zip_path,
+            'a',
+            '-bsp1',
+            f'-p{password_quoted}',
+            '-mhe=on',
+            '-mx=0',
+            '-m0=Copy',
+            '-mmt=on',
+            '-v2000M',  # Add volume splitting option (2000M per volume)
+            archive_name_quoted,
+            item_quoted
+        ]
     else:
-         command = [
-         seven_zip_path,
-        'a',
-        '-bsp1',
-        '-p{}'.format(password),
-        '-mhe=on',
-        '-mx=0',
-        '-m0=Copy',
-        '-mmt=on',
-        archive_name,
-        item
-    ]
+        command = [
+            seven_zip_path,
+            'a',
+            '-bsp1',
+            f'-p{password_quoted}',
+            '-mhe=on',
+            '-mx=0',
+            '-m0=Copy',
+            '-mmt=on',
+            archive_name_quoted,
+            item_quoted
+        ]
 
     # Run compression command and capture output
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
